@@ -1,12 +1,14 @@
-use crate::dag_to_graph::dag_to_text;
+#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![warn(unused_results, clippy::must_use_candidate)]
 
+use crate::dag::dag_to_text;
+
+mod dag;
 mod screen;
-mod dag_to_graph;
+#[cfg(test)]
+mod test;
 
 fn main() {
-    let dag = r#"
-        AAAAAAAAAAAAA -> B -> C
-        AAAAAAAAAAAAA -> D -> C
-    "#;
+    let dag = "A -> B -> C\nA -> D -> C";
     println!("{}", dag_to_text(dag));
 }

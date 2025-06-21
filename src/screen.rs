@@ -4,8 +4,8 @@
 // helper.  It keeps the public API and behaviour almost identical, but
 // uses Rust’s `char` for Unicode cells.
 
-use std::cmp::{max};
-use std::fmt::{self, Write};
+use std::cmp::max;
+use std::fmt;
 
 #[derive(Clone)]
 pub struct Screen {
@@ -42,8 +42,12 @@ impl Screen {
         }
     }
 
-    pub fn width(&self) -> usize  { self.dim_x }
-    pub fn height(&self) -> usize { self.dim_y }
+    pub const fn width(&self) -> usize {
+        self.dim_x
+    }
+    pub const fn height(&self) -> usize {
+        self.dim_y
+    }
 
     /* ---------------------------------------------------------------- */
     /* -- direct access ---------------------------------------------- */
@@ -88,21 +92,13 @@ impl Screen {
         }
     }
 
-    pub fn draw_horizontal_line(&mut self,
-                                left: usize,
-                                right: usize,
-                                y: usize,
-                                c: char) {
+    pub fn draw_horizontal_line(&mut self, left: usize, right: usize, y: usize, c: char) {
         for x in left..=right {
             self.lines[y][x] = c;
         }
     }
 
-    pub fn draw_vertical_line(&mut self,
-                              top: usize,
-                              bottom: usize,
-                              x: usize,
-                              c: char) {
+    pub fn draw_vertical_line(&mut self, top: usize, bottom: usize, x: usize, c: char) {
         for y in top..=bottom {
             self.lines[y][x] = c;
         }
@@ -110,38 +106,40 @@ impl Screen {
 
     /// Converts a “half-drawn” vertical composed of '─' intersections
     /// into correct box-drawing chars (mirrors C++ `DrawVerticalLineComplete`).
-    pub fn draw_vertical_line_complete(&mut self,
-                                       top: usize,
-                                       bottom: usize,
-                                       x: usize) {
+    pub fn draw_vertical_line_complete(&mut self, top: usize, bottom: usize, x: usize) {
         for y in top..=bottom {
             let ch = self.lines[y][x];
             let res = match ch {
                 '─' => {
-                    let left  = x > 0 && self.lines[y][x - 1] != ' ';
+                    let left = x > 0 && self.lines[y][x - 1] != ' ';
                     let right = x + 1 < self.dim_x && self.lines[y][x + 1] != ' ';
                     match (y == top, y == bottom, left, right) {
-                        (true , true , l, r) => if l && r {'─'} else {'│'},
-                        (true , false, true , true ) => '┬',
-                        (true , false, true , false) => '┐',
-                        (true , false, false, true ) => '┌',
-                        (false, true , true , true ) => '┴',
-                        (false, true , true , false) => '┘',
-                        (false, true , false, true ) => '└',
-                        _                          => '│',
+                        (true, true, l, r) => {
+                            if l && r {
+                                '─'
+                            } else {
+                                '│'
+                            }
+                        }
+                        (true, false, true, true) => '┬',
+                        (true, false, true, false) => '┐',
+                        (true, false, false, true) => '┌',
+                        (false, true, true, true) => '┴',
+                        (false, true, true, false) => '┘',
+                        (false, true, false, true) => '└',
+                        _ => '│',
                     }
                 }
                 '┐' | '┘' => '┤',
                 '┌' | '└' => '├',
                 '┬' | '┴' => '┼',
-                _         => '│',
+                _ => '│',
             };
             self.lines[y][x] = res;
         }
     }
 
-    /* ---------------------------------------------------------------- */
-    /* -- ASCII fallback ---------------------------------------------- */
+    #[expect(clippy::match_same_arms)] // current formatting is more readably
     pub fn asciify(&mut self, style: u8) {
         for row in &mut self.lines {
             for ch in row {
@@ -165,9 +163,11 @@ impl Screen {
 
     /* ---------------------------------------------------------------- */
     /* -- composition ------------------------------------------------- */
-    pub fn append(&mut self, other: &Screen, x: usize, y: usize) {
-        self.resize(max(self.dim_x, x + other.dim_x),
-                    max(self.dim_y, y + other.dim_y));
+    pub fn append(&mut self, other: &Self, x: usize, y: usize) {
+        self.resize(
+            max(self.dim_x, x + other.dim_x),
+            max(self.dim_y, y + other.dim_y),
+        );
         for (dy, row) in other.lines.iter().enumerate() {
             for (dx, &ch) in row.iter().enumerate() {
                 self.lines[y + dy][x + dx] = ch;
@@ -175,9 +175,7 @@ impl Screen {
         }
     }
 
-    /* ---------------------------------------------------------------- */
-    /* -- stringify --------------------------------------------------- */
-    pub fn to_string(&self) -> String {
+    pub fn stringify(&self) -> String {
         let mut out = String::with_capacity((self.dim_x + 1) * self.dim_y);
         for row in &self.lines {
             for &ch in row {
@@ -191,18 +189,10 @@ impl Screen {
 
 impl fmt::Display for Screen {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for row in &self.lines {
-            for &ch in row {
-                f.write_char(ch)?;
-            }
-            f.write_char('\n')?;
-        }
-        Ok(())
+        f.write_str(&self.stringify())
     }
 }
 
-/* ---------------------------------------------------------------------- */
-/* -- tiny demo (delete if embedding as a lib) -------------------------- */
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,6 +201,6 @@ mod tests {
         let mut s = Screen::new(10, 5);
         s.draw_box(0, 0, 10, 5);
         s.draw_boxed_text(1, 1, "Hi");
-        println!("{}", s);
+        println!("{s}");
     }
 }

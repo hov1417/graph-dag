@@ -1,7 +1,7 @@
 //! dag.rs  – ASCII DAG-to-text renderer (Rust port of Arthur Sonzogni’s code)
 
-use std::cmp::{max, min, Reverse};
-use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+use std::cmp::{Reverse, max, min};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
 
 use crate::screen::Screen;
 // keep the first file in `screen.rs`
@@ -12,15 +12,15 @@ use crate::screen::Screen;
 #[derive(Default)]
 struct Node {
     /* parsing */
-    upward: HashSet<usize>,
-    downward: HashSet<usize>,
+    upward: BTreeSet<usize>,
+    downward: BTreeSet<usize>,
     is_connector: bool,
     padding: i32,
 
     /* layering */
     layer: usize,
     row: usize,
-    downward_closure: HashSet<usize>,
+    downward_closure: BTreeSet<usize>,
     upward_sorted: Vec<usize>,
     downward_sorted: Vec<usize>,
 
@@ -42,8 +42,8 @@ struct Edge {
 #[derive(Default)]
 struct Adapter {
     enabled: bool,
-    inputs: Vec<HashSet<i32>>,
-    outputs: Vec<HashSet<i32>>,
+    inputs: Vec<BTreeSet<i32>>,
+    outputs: Vec<BTreeSet<i32>>,
     height: i32,
     y: i32,
     rendering: Vec<Vec<char>>,
@@ -115,10 +115,13 @@ impl Context {
         self.nodes[b].upward.insert(c);
     }
 
-    /* ------------- parsing ------------- */
     fn parse(&mut self, input: &str) {
         for line in split(input, "\n") {
             let mut prev = None;
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
             for part in split(line, "->") {
                 let name = part.trim();
                 self.add_node(name);
@@ -130,7 +133,6 @@ impl Context {
         }
     }
 
-    /* ------------- layering + completion ------------- */
     fn toposort(&mut self) -> bool {
         let mut changed = true;
         let mut iter = 0;
@@ -152,10 +154,10 @@ impl Context {
         }
         true
     }
+
     fn complete(&mut self) {
-        let mut again = true;
-        while again {
-            again = false;
+        loop {
+            let mut again = false;
             for a in 0..self.nodes.len() {
                 let layer_a = self.nodes[a].layer;
                 let downs: Vec<usize> = self.nodes[a].downward.clone().into_iter().collect();
@@ -166,6 +168,9 @@ impl Context {
                         break;
                     }
                 }
+            }
+            if !again {
+                break;
             }
         }
     }
@@ -182,8 +187,8 @@ impl Context {
         let rows = self.nodes.iter().map(|n| n.row).collect::<Vec<_>>();
         /* sort adj lists */
         for node in &mut self.nodes {
-            node.upward_sorted = node.upward.iter().cloned().collect();
-            node.downward_sorted = node.downward.iter().cloned().collect();
+            node.upward_sorted = node.upward.iter().copied().collect();
+            node.downward_sorted = node.downward.iter().copied().collect();
             node.upward_sorted.sort_by_key(|&i| rows[i]);
             node.downward_sorted.sort_by_key(|&i| rows[i]);
         }
@@ -206,10 +211,10 @@ impl Context {
         /* downward closure, from next-to-last layer up */
         for y in (0..self.layers.len().saturating_sub(1)).rev() {
             for &up in &self.layers[y].nodes {
-                let mut closure = HashSet::new();
+                let mut closure = BTreeSet::new();
                 for &d in &self.nodes[up].downward {
                     closure.insert(d);
-                    closure.extend(self.nodes[d].downward_closure.iter().cloned());
+                    closure.extend(self.nodes[d].downward_closure.iter().copied());
                 }
                 self.nodes[up].downward_closure = closure;
             }
@@ -251,7 +256,7 @@ impl Context {
 
             /* heuristic permutation search (swap-improve) */
             let mut perm: Vec<usize> = (0..w).collect();
-            let mut score = |perm: &[usize]| -> f32 {
+            let score = |perm: &[usize]| -> f32 {
                 let mut s = 0f32;
                 for i in 0..w - 1 {
                     s += dist[perm[i]][perm[i + 1]] as f32;
@@ -360,8 +365,8 @@ impl Context {
                 })
             };
 
-            let mut inputs = vec![HashSet::new(); width as usize];
-            let mut outputs = vec![HashSet::new(); width as usize];
+            let mut inputs = vec![BTreeSet::new(); width as usize];
+            let mut outputs = vec![BTreeSet::new(); width as usize];
 
             for &a in &up.nodes {
                 let n = &self.nodes[a];
@@ -541,24 +546,35 @@ impl Context {
             }
         }
 
-        screen.to_string()
+        screen.stringify()
     }
 
     /* ------------- public entry ------------- */
     pub fn process(input: &str) -> String {
-        let mut ctx = Context::default();
-        ctx.parse(input);
+        macro_rules! timeit {
+            ($name:literal, $e:expr) => {{
+                let start = std::time::Instant::now();
+                let res = $e;
+                let duration = start.elapsed();
+                println!("{} took {:?}", $name, duration);
+                res
+            }};
+        }
+        let mut ctx = Self::default();
+        timeit!("parse", ctx.parse(input));
         if ctx.nodes.is_empty() {
-            return "".into();
+            return String::new();
         }
         if !ctx.toposort() {
+            // TODO, error
             return "There are cycles".into();
         }
-        ctx.complete();
-        ctx.build_layers();
-        ctx.resolve_crossings();
-        ctx.layout();
-        ctx.render()
+        timeit!("complete", ctx.complete());
+        timeit!("build_layers", ctx.build_layers());
+        timeit!("resolve_crossings", ctx.resolve_crossings());
+        timeit!("layout", ctx.layout());
+        let res = timeit!("render", ctx.render());
+        res
     }
 }
 
@@ -568,12 +584,6 @@ impl Context {
 impl Adapter {
     pub fn construct(&mut self) {
         let width = self.inputs.len();
-        if width == 0 {
-            self.height = 0;
-            self.rendering.clear();
-            return;
-        }
-
         /* highest connector id that appears */
         let mut connector_len = 0;
         for x in 0..width {
@@ -598,6 +608,7 @@ impl Adapter {
         }
 
         /* search height starting at 3, grow until a solution appears ------- */
+        let big = 1 << 15;
         let mut height: usize = 3;
         loop {
             /* build graph -------------------------------------------------- */
@@ -609,7 +620,7 @@ impl Adapter {
             let index =
                 |x: usize, y: usize, layer: usize| -> usize { x + width * (y + height * layer) };
 
-            let mut connect =
+            let connect =
                 |idx: usize, a: usize, b: usize, w: i32, nodes: &mut [Node], edges: &mut [Edge]| {
                     edges[idx].a = a;
                     edges[idx].b = b;
@@ -622,24 +633,36 @@ impl Adapter {
                 for x in 0..width {
                     /* vertical */
                     if y != height - 1 {
-                        let idx = index(x, y, 0);
-                        let a = index(x, y, 0);
-                        let b = index(x, y + 1, 0);
-                        connect(idx, a, b, 1, &mut nodes, &mut edges);
+                        connect(
+                            index(x, y, 0),
+                            index(x, y, 0),
+                            index(x, y + 1, 0),
+                            1,
+                            &mut nodes,
+                            &mut edges,
+                        );
                     }
                     /* horizontal (middle layers only) */
                     if y >= 1 && y <= height - 3 && x != width - 1 {
-                        let idx = index(x, y, 1);
-                        let a = index(x, y, 1);
-                        let b = index(x + 1, y, 1);
-                        connect(idx, a, b, 1, &mut nodes, &mut edges);
+                        connect(
+                            index(x, y, 1),
+                            index(x, y, 1),
+                            index(x + 1, y, 1),
+                            1,
+                            &mut nodes,
+                            &mut edges,
+                        );
                     }
                     /* corners */
                     let dy = height as i32 / 2 - y as i32;
-                    let idx = index(x, y, 2);
-                    let a = index(x, y, 0);
-                    let b = index(x, y, 1);
-                    connect(idx, a, b, 10 + dy * dy, &mut nodes, &mut edges);
+                    connect(
+                        index(x, y, 2),
+                        index(x, y, 0),
+                        index(x, y, 1),
+                        10 + dy * dy,
+                        &mut nodes,
+                        &mut edges,
+                    );
                 }
             }
 
@@ -647,15 +670,14 @@ impl Adapter {
             let mut solution_found = true;
             for connector in 1..=connector_len {
                 /* reset Dijkstra state */
-                let big = 1 << 15;
                 for n in &mut nodes {
                     n.visited = false;
                     n.cost = big;
                 }
 
                 /* start/end sets */
-                let mut start = HashSet::new();
-                let mut end = HashSet::new();
+                let mut start = BTreeSet::new();
+                let mut end = BTreeSet::new();
                 for x in 0..width {
                     if self.inputs[x].contains(&connector) {
                         start.insert(index(x, 0, 0));
@@ -678,15 +700,18 @@ impl Adapter {
                     nodes[nidx].visited = true;
                     nodes[nidx].cost = cost;
                     for &eidx in &nodes[nidx].edges {
-                        let e = &edges[eidx];
-                        if e.assigned != 0 {
+                        if edges[eidx].assigned != 0 {
                             continue;
                         }
-                        let next = if e.a == nidx { e.b } else { e.a };
-                        if nodes[next].visited {
+                        let v = if edges[eidx].a == nidx {
+                            edges[eidx].b
+                        } else {
+                            edges[eidx].a
+                        };
+                        if nodes[v].visited {
                             continue;
                         }
-                        pq.push((Reverse(cost + e.weight), next));
+                        pq.push((Reverse(cost + edges[eidx].weight), v));
                     }
                 }
 
@@ -708,7 +733,6 @@ impl Adapter {
                 /* back-trace & mark path */
                 while !start.contains(&cur) {
                     /* find predecessor with cost = cur.cost - weight */
-                    let mut moved = false;
                     for &eidx in &nodes[cur].edges {
                         let (a, b, w) = {
                             let e = &edges[eidx];
@@ -718,13 +742,9 @@ impl Adapter {
                         if nodes[prev].cost + w == nodes[cur].cost {
                             edges[eidx].assigned = connector;
                             cur = prev;
-                            moved = true;
                             break;
                         }
                     }
-                    if !moved {
-                        break;
-                    } // safety
                 }
 
                 /* penalise perpendicular crossings */
@@ -741,20 +761,18 @@ impl Adapter {
                     }
                 }
             }
-
-            /* retry with taller grid if any connector failed */
+            if height > 30 {
+                solution_found = true;
+            }
             if !solution_found {
                 height += 1;
-                if height > 30 {
-                    break;
-                } // give up, use straight lines
                 continue;
             }
 
             /* build character raster -------------------------------------- */
             self.height = height as i32;
             self.rendering = vec![vec![' '; width]; height];
-            let assigned = |x: usize, y: usize, l: usize, edges: &Vec<Edge>| -> bool {
+            let assigned = |x: usize, y: usize, l: usize, edges: &[Edge]| -> bool {
                 edges[index(x, y, l)].assigned != 0
             };
             for y in 0..height {
@@ -783,7 +801,7 @@ impl Adapter {
                     }
                 }
             }
-            break; /* finished */
+            break;
         }
     }
     fn render(&self, screen: &mut Screen) {
