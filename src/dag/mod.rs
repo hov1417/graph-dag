@@ -3,6 +3,7 @@ mod context;
 
 use crate::dag::adapter::Adapter;
 use crate::dag::context::Context;
+pub use crate::dag::context::ProcessingError;
 use std::collections::HashSet;
 
 #[derive(Default)]
@@ -46,6 +47,6 @@ fn split<'a>(s: &'a str, pat: &str) -> Vec<&'a str> {
     s.split(pat).filter(|x| !x.is_empty()).collect()
 }
 
-pub fn dag_to_text(s: &str) -> String {
+pub fn dag_to_text(s: &str) -> Result<String, ProcessingError> {
     Context::process(s)
 }

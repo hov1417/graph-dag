@@ -1,7 +1,8 @@
-use crate::dag::{Edge, Layer, Node, split};
+use crate::dag::{split, Edge, Layer, Node};
 use crate::screen::Screen;
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
+use thiserror::Error;
 
 #[derive(Default)]
 pub struct Context {
@@ -10,6 +11,12 @@ pub struct Context {
 
     nodes: Vec<Node>,
     layers: Vec<Layer>,
+}
+
+#[derive(Error, Debug)]
+pub enum ProcessingError {
+    #[error("The graph has a cycle")]
+    CycleFound
 }
 
 impl Context {
@@ -60,6 +67,9 @@ impl Context {
             }
             for part in split(line, "->") {
                 let name = part.trim();
+                if name.is_empty() {
+                    continue;
+                }
                 self.add_node(name);
                 if let Some(p) = prev {
                     self.add_vertex(p, name);
@@ -320,20 +330,19 @@ impl Context {
             adapter.construct();
         }
 
-        /* y positions */
-        let mut ycur = 0;
+        let mut y_position = 0;
         for layer in &mut self.layers {
             for &n in &layer.nodes {
-                self.nodes[n].y = ycur;
+                self.nodes[n].y = y_position;
             }
             for e in &mut layer.edges {
-                e.y = ycur + 2;
+                e.y = y_position + 2;
             }
             if layer.adapter.enabled {
-                layer.adapter.y = ycur + 2;
-                ycur += layer.adapter.height - 3;
+                layer.adapter.y = y_position + 2;
+                y_position += layer.adapter.height - 3;
             }
-            ycur += 3;
+            y_position += 3;
         }
     }
 
@@ -474,7 +483,7 @@ impl Context {
         screen.stringify()
     }
 
-    pub fn process(input: &str) -> String {
+    pub fn process(input: &str) -> Result<String, ProcessingError> {
         // todo debug logging
         macro_rules! timeit {
             ($name:literal, $e:expr) => {{
@@ -488,17 +497,16 @@ impl Context {
         let mut ctx = Self::default();
         timeit!("parse", ctx.parse(input));
         if ctx.nodes.is_empty() {
-            return String::new();
+            return Ok(String::new());
         }
         if !ctx.toposort() {
-            // TODO, error
-            return "There are cycles".into();
+            return Err(ProcessingError::CycleFound)
         }
         timeit!("complete", ctx.complete());
         timeit!("build_layers", ctx.build_layers());
         timeit!("resolve_crossings", ctx.resolve_crossings());
         timeit!("layout", ctx.layout());
         let res = timeit!("render", ctx.render());
-        res
+        Ok(res)
     }
 }
