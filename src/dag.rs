@@ -1,13 +1,7 @@
-//! dag.rs  – ASCII DAG-to-text renderer (Rust port of Arthur Sonzogni’s code)
-
-use std::cmp::{Reverse, max, min};
+use std::cmp::{max, min, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
 
 use crate::screen::Screen;
-// keep the first file in `screen.rs`
-
-/* ------------------------------------------------------------------------- */
-/* -- data structures ------------------------------------------------------ */
 
 #[derive(Default)]
 struct Node {
@@ -66,17 +60,11 @@ pub struct Context {
     layers: Vec<Layer>,
 }
 
-/* ------------------------------------------------------------------------- */
-/* -- helpers -------------------------------------------------------------- */
 fn split<'a>(s: &'a str, pat: &str) -> Vec<&'a str> {
     s.split(pat).filter(|x| !x.is_empty()).collect()
 }
 
-/* ------------------------------------------------------------------------- */
-/* -- context methods ------------------------------------------------------ */
-
 impl Context {
-    /* ------------- construction ------------- */
     fn add_node(&mut self, name: &str) {
         if self.id.contains_key(name) {
             return;
@@ -175,7 +163,6 @@ impl Context {
         }
     }
 
-    /* ------------- build layers & ordering ------------- */
     fn build_layers(&mut self) {
         let last_layer = self.nodes.iter().map(|n| n.layer).max().unwrap_or(0);
         self.layers.resize_with(last_layer + 1, Default::default);
@@ -226,7 +213,6 @@ impl Context {
                 continue;
             }
 
-            /* parent barycentres */
             let mut parent_mean = vec![0f32; w];
             for (i, &n) in layer.nodes.iter().enumerate() {
                 let sum: usize = self.nodes[n]
@@ -237,7 +223,6 @@ impl Context {
                 parent_mean[i] = sum as f32 / (self.nodes[n].upward.len() as f32 + 0.01);
             }
 
-            /* distance matrix */
             let big = self.nodes.len() * 2;
             let mut dist = vec![vec![big; w]; w];
             for a in 0..w {
@@ -298,7 +283,6 @@ impl Context {
         }
     }
 
-    /* ------------- crossing detection ------------- */
     fn resolve_crossings(&mut self) {
         for layer in &mut self.layers {
             let mut up = layer.edges.clone();
@@ -312,9 +296,7 @@ impl Context {
         }
     }
 
-    /* ------------- size & x-positions ------------- */
     fn layout(&mut self) {
-        /* initial widths */
         for (i, node) in self.nodes.iter_mut().enumerate() {
             if node.is_connector {
                 node.width = 1;
@@ -327,7 +309,6 @@ impl Context {
             node.height = 3;
         }
 
-        /* iterative constraints */
         for _ in 0..1000 {
             if self.layout_nodes_do_not_touch()
                 && self.layout_edges_do_not_touch()
@@ -485,7 +466,6 @@ impl Context {
         true
     }
 
-    /* ------------- adapter build & render ------------- */
     fn render(&self) -> String {
         /* total size */
         let mut w = 0;
@@ -497,7 +477,6 @@ impl Context {
 
         let mut screen = Screen::new(w as usize, h as usize);
 
-        /* draw nodes */
         for (i, n) in self.nodes.iter().enumerate() {
             if n.is_connector {
                 if n.width == 1 {
@@ -521,7 +500,6 @@ impl Context {
             }
         }
 
-        /* draw edges */
         for layer in &self.layers {
             for e in &layer.edges {
                 let up = if self.nodes[e.up].is_connector {
@@ -539,7 +517,6 @@ impl Context {
             }
         }
 
-        /* adapters */
         for layer in &self.layers {
             if layer.adapter.enabled {
                 layer.adapter.render(&mut screen);
@@ -549,7 +526,6 @@ impl Context {
         screen.stringify()
     }
 
-    /* ------------- public entry ------------- */
     pub fn process(input: &str) -> String {
         macro_rules! timeit {
             ($name:literal, $e:expr) => {{
@@ -578,9 +554,6 @@ impl Context {
     }
 }
 
-/* ------------------------------------------------------------------------- */
-/* -- adapter impl --------------------------------------------------------- */
-
 impl Adapter {
     pub fn construct(&mut self) {
         let width = self.inputs.len();
@@ -592,7 +565,6 @@ impl Adapter {
             }
         }
 
-        /* local graph types ------------------------------------------------ */
         #[derive(Default, Clone)]
         struct Node {
             visited: bool,
@@ -607,11 +579,11 @@ impl Adapter {
             assigned: i32,
         }
 
-        /* search height starting at 3, grow until a solution appears ------- */
+        /* search height starting at 3, grow until a solution appears */
         let big = 1 << 15;
         let mut height: usize = 3;
         loop {
-            /* build graph -------------------------------------------------- */
+            /* build graph */
             let nodes_count = width * height * 2;
             let edges_count = width * height * 3;
             let mut nodes: Vec<Node> = vec![Node::default(); nodes_count];
@@ -666,7 +638,7 @@ impl Adapter {
                 }
             }
 
-            /* try to route every connector one-by-one ---------------------- */
+            /* try to route every connector one-by-one */
             let mut solution_found = true;
             for connector in 1..=connector_len {
                 /* reset Dijkstra state */
@@ -769,7 +741,7 @@ impl Adapter {
                 continue;
             }
 
-            /* build character raster -------------------------------------- */
+            /* build character raster */
             self.height = height as i32;
             self.rendering = vec![vec![' '; width]; height];
             let assigned = |x: usize, y: usize, l: usize, edges: &[Edge]| -> bool {
@@ -819,9 +791,6 @@ impl Adapter {
         }
     }
 }
-
-/* ------------------------------------------------------------------------- */
-/* -- convenience wrapper -------------------------------------------------- */
 
 pub fn dag_to_text(s: &str) -> String {
     Context::process(s)

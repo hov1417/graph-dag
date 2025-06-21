@@ -1,9 +1,3 @@
-// Copyright 2025  (MIT license)
-//
-// A minimal, drop-in Rust translation of Arthur Sonzogni’s C++ “Screen”
-// helper.  It keeps the public API and behaviour almost identical, but
-// uses Rust’s `char` for Unicode cells.
-
 use std::cmp::max;
 use std::fmt;
 
@@ -21,8 +15,6 @@ impl Default for Screen {
 }
 
 impl Screen {
-    /* ---------------------------------------------------------------- */
-    /* -- construction / resize -------------------------------------- */
     pub fn new(width: usize, height: usize) -> Self {
         let mut scr = Self {
             dim_x: width,
@@ -49,8 +41,6 @@ impl Screen {
         self.dim_y
     }
 
-    /* ---------------------------------------------------------------- */
-    /* -- direct access ---------------------------------------------- */
     pub fn pixel(&mut self, x: usize, y: usize) -> &mut char {
         &mut self.lines[y][x]
     }
@@ -59,8 +49,6 @@ impl Screen {
         self.lines[y][x] = c;
     }
 
-    /* ---------------------------------------------------------------- */
-    /* -- text helpers ------------------------------------------------ */
     pub fn draw_text(&mut self, x: usize, y: usize, text: &str) {
         for (i, ch) in text.chars().enumerate() {
             if x + i < self.dim_x {
@@ -74,8 +62,6 @@ impl Screen {
         self.draw_box(x, y, text.chars().count() + 2, 3);
     }
 
-    /* ---------------------------------------------------------------- */
-    /* -- primitives -------------------------------------------------- */
     pub fn draw_box(&mut self, x: usize, y: usize, w: usize, h: usize) {
         self.lines[y][x] = '┌';
         self.lines[y][x + w - 1] = '┐';
@@ -104,7 +90,7 @@ impl Screen {
         }
     }
 
-    /// Converts a “half-drawn” vertical composed of '─' intersections
+    /// Converts a "half-drawn" vertical composed of '─' intersections
     /// into correct box-drawing chars (mirrors C++ `DrawVerticalLineComplete`).
     pub fn draw_vertical_line_complete(&mut self, top: usize, bottom: usize, x: usize) {
         for y in top..=bottom {
@@ -161,8 +147,6 @@ impl Screen {
         }
     }
 
-    /* ---------------------------------------------------------------- */
-    /* -- composition ------------------------------------------------- */
     pub fn append(&mut self, other: &Self, x: usize, y: usize) {
         self.resize(
             max(self.dim_x, x + other.dim_x),
