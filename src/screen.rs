@@ -57,6 +57,17 @@ impl Screen {
         }
     }
 
+    pub fn draw_text_in_box_center(
+        &mut self,
+        x: usize,
+        y: usize,
+        width: usize,
+        text: &str,
+    ) {
+        let margin = (width - text.chars().count())/ 2;
+        self.draw_text(x + margin, y + 1, text)
+    }
+
     pub fn draw_boxed_text(&mut self, x: usize, y: usize, text: &str) {
         self.draw_text(x + 1, y + 1, text);
         self.draw_box(x, y, text.chars().count() + 2, 3);

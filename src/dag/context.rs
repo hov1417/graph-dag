@@ -16,7 +16,7 @@ pub struct Context {
 #[derive(Error, Debug)]
 pub enum ProcessingError {
     #[error("The graph has a cycle")]
-    CycleFound
+    CycleFound,
 }
 
 impl Context {
@@ -453,7 +453,12 @@ impl Context {
                     n.width as usize,
                     n.height as usize,
                 );
-                screen.draw_text((n.x + 1) as usize, (n.y + 1) as usize, &self.labels[i]);
+                screen.draw_text_in_box_center(
+                    n.x as usize,
+                    n.y as usize,
+                    n.width as usize,
+                    &self.labels[i],
+                );
             }
         }
 
@@ -500,7 +505,7 @@ impl Context {
             return Ok(String::new());
         }
         if !ctx.toposort() {
-            return Err(ProcessingError::CycleFound)
+            return Err(ProcessingError::CycleFound);
         }
         timeit!("complete", ctx.complete());
         timeit!("build_layers", ctx.build_layers());

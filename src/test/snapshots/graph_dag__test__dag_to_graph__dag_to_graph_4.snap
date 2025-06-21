@@ -1,13 +1,13 @@
 ---
 source: src/test/dag_to_graph.rs
-expression: "dag_to_text(\"A -> C\\nA -> D -> C\\nB -> D\\nE -> C\")"
+expression: "dag_to_text(\"A -> C\\nA -> D -> C\\nB -> D\\nE -> C\").unwrap()"
 ---
 ┌───┐┌─┐┌─┐
-│A  ││B││E│
+│ A ││B││E│
 └┬─┬┘└┬┘└┬┘
  │┌▽──▽┐ │ 
- ││D   │ │ 
+ ││ D  │ │ 
  │└┬───┘ │ 
 ┌▽─▽─────▽┐
-│C        │
+│    C    │
 └─────────┘

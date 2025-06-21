@@ -5,5 +5,5 @@ use graph_dag::dag_to_text;
 
 fn main() {
     let dag = "A -> B -> C\nA -> D -> C";
-    println!("{:?}", dag_to_text(dag));
+    println!("{}", dag_to_text(dag).unwrap());
 }
