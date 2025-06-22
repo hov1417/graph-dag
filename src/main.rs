@@ -1,5 +1,6 @@
 #![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
-#![warn(unused_results, clippy::must_use_candidate)]
+#![warn(clippy::must_use_candidate)]
+// #![warn(unused_results)]
 
 use graph_dag::dag_to_text;
 

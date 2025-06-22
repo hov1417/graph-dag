@@ -57,15 +57,9 @@ impl Screen {
         }
     }
 
-    pub fn draw_text_in_box_center(
-        &mut self,
-        x: usize,
-        y: usize,
-        width: usize,
-        text: &str,
-    ) {
-        let margin = (width - text.chars().count())/ 2;
-        self.draw_text(x + margin, y + 1, text)
+    pub fn draw_text_in_box_center(&mut self, x: usize, y: usize, width: usize, text: &str) {
+        let margin = (width - text.chars().count()) / 2;
+        self.draw_text(x + margin, y + 1, text);
     }
 
     pub fn draw_boxed_text(&mut self, x: usize, y: usize, text: &str) {
@@ -102,7 +96,7 @@ impl Screen {
     }
 
     /// Converts a "half-drawn" vertical composed of '─' intersections
-    /// into correct box-drawing chars (mirrors C++ `DrawVerticalLineComplete`).
+    /// into correct box-drawing chars
     pub fn draw_vertical_line_complete(&mut self, top: usize, bottom: usize, x: usize) {
         for y in top..=bottom {
             let ch = self.lines[y][x];
@@ -136,6 +130,8 @@ impl Screen {
         }
     }
 
+    // TODO, style as input, like in
+    // https://github.com/yzhong52/ascii_tree/blob/main/src/tree/vertical.rs
     #[expect(clippy::match_same_arms)] // current formatting is more readably
     pub fn asciify(&mut self, style: u8) {
         for row in &mut self.lines {
@@ -190,6 +186,7 @@ impl fmt::Display for Screen {
 
 #[cfg(test)]
 mod tests {
+    // TODO
     use super::*;
     #[test]
     fn smoke() {

@@ -47,6 +47,39 @@ fn split<'a>(s: &'a str, pat: &str) -> Vec<&'a str> {
     s.split(pat).filter(|x| !x.is_empty()).collect()
 }
 
+/// Convert Directed Acyclic Graph (DAG) into Unicode graphic
+///
+/// # Arguments
+///
+/// * `s`: Directed Acyclic Graph represented as lines of paths
+///
+/// returns: `Result<String, ProcessingError>`
+///
+/// # Errors
+/// returns `ProcessingError::CycleFound` if cycle is detected in input graph
+///
+/// # Examples
+///
+/// ```
+/// use graph_dag::dag_to_text;
+/// let graph = dag_to_text(r#"
+///     A -> B -> C
+///     D -> C
+///     D -> E
+/// "#);
+/// assert_eq!(
+/// &graph.unwrap(),
+/// r#"┌───┐┌───┐  
+/// │ A ││ D │  
+/// └┬──┘└┬─┬┘  
+/// ┌▽──┐ │┌▽──┐
+/// │ B │ ││ E │
+/// └┬──┘ │└───┘
+/// ┌▽────▽─┐   
+/// │   C   │   
+/// └───────┘   
+/// "#);
+/// ```
 pub fn dag_to_text(s: &str) -> Result<String, ProcessingError> {
     Context::process(s)
 }

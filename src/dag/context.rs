@@ -1,4 +1,4 @@
-use crate::dag::{split, Edge, Layer, Node};
+use crate::dag::{Edge, Layer, Node, split};
 use crate::screen::Screen;
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
@@ -374,7 +374,6 @@ impl Context {
         stable
     }
     fn layout_edges_do_not_touch(&mut self) -> bool {
-        /* identical to nodes step */
         self.layout_nodes_do_not_touch()
     }
     fn layout_grow_nodes(&mut self) -> bool {
