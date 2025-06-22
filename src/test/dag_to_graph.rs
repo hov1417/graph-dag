@@ -25,3 +25,13 @@ fn test_dag_to_graph_4() {
 fn test_dag_to_graph_cycle_1() {
     assert!(dag_to_text("A -> B\nA -> D\nB -> D\nD -> E\nE -> A").is_err());
 }
+
+#[test]
+fn test_dag_to_graph_cycle_2() {
+    assert!(dag_to_text("A -> B\nB -> C\nC -> A").is_err());
+}
+
+#[test]
+fn test_dag_to_graph_cycle_3() {
+    assert!(dag_to_text("A -> B\nB -> C\nC -> D\nD -> E\nE -> F\nF -> G\nG -> A").is_err());
+}

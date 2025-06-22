@@ -32,12 +32,14 @@ impl Context {
         self.id.insert(name.into(), idx);
         self.labels.push(name.into());
     }
+
     fn add_vertex(&mut self, a: &str, b: &str) {
         let ia = self.id[a];
         let ib = self.id[b];
         self.nodes[ia].downward.insert(ib);
         self.nodes[ib].upward.insert(ia);
     }
+
     fn add_connector(&mut self, a: usize, b: usize) {
         let c = self.nodes.len();
         self.nodes.push(Node {
