@@ -261,10 +261,20 @@ impl Context {
             if node.is_connector {
                 node.width = 1;
             } else {
-                let mut w = self.labels[i].chars().count() as i32;
-                w = max(w, node.upward.len() as i32);
-                w = max(w, node.downward.len() as i32);
-                node.width = w + 2;
+                let chars = self.labels[i].chars().count() as i32;
+                let mut width = chars;
+                width = max(width, node.upward.len() as i32);
+                width = max(width, node.downward.len() as i32);
+                // add at least 2 spaces as margin
+                while width - chars < 2 {
+                    width += 1;
+                }
+                // width and chars should have same width, for centering
+                if width % 2 != chars % 2 {
+                    width += 1;
+                }
+                // additional 2 width for border
+                node.width = width + 2;
             }
             node.height = 3;
         }
@@ -370,16 +380,17 @@ impl Context {
     fn layout_grow_nodes(&mut self) -> bool {
         for layer in &self.layers {
             for &edge in &layer.edges {
-                let node_up = &mut self.nodes[edge.up];
-                if node_up.x + node_up.width - 1 - 1 < edge.x && !node_up.is_connector {
-                    node_up.width = edge.x + 1 + 1 - node_up.x;
-                    return false;
-                }
-
-                let node_down = &mut self.nodes[edge.down];
-                if node_down.x + node_down.width - 1 - 1 < edge.x && !node_down.is_connector {
-                    node_down.width = edge.x + 1 + 1 - node_down.x;
-                    return false;
+                let node_indexes = [edge.up, edge.down];
+                for node_index in node_indexes {
+                    let node = &mut self.nodes[node_index];
+                    if node.x + node.width - 1 - 1 < edge.x && !node.is_connector {
+                        let parity = node.width % 2;
+                        node.width = edge.x + 1 + 1 - node.x;
+                        if parity != node.width % 2 {
+                            node.width += 1;
+                        }
+                        return false;
+                    }
                 }
             }
         }

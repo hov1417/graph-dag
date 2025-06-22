@@ -4,6 +4,6 @@
 use graph_dag::dag_to_text;
 
 fn main() {
-    let dag = "A -> B -> C\nA -> D -> C";
+    let dag = "A -> C\nA -> D -> C\nB -> D\nE -> C";
     println!("{}", dag_to_text(dag).unwrap());
 }
