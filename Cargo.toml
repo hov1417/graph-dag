@@ -6,7 +6,7 @@ license = "MIT"
 
 [dependencies]
 itertools = "0.14.0"
-petgraph = { version = "0.8.2", optional = true, features = ["all"] }
+petgraph = { version = "0.8.2", optional = true}
 thiserror = "2.0.12"
 
 [dev-dependencies]
