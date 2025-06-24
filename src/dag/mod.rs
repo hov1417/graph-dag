@@ -1,5 +1,7 @@
 mod adapter;
 mod context;
+#[cfg(feature = "petgraph")]
+mod petgraph_adapter;
 
 use crate::dag::adapter::Adapter;
 use crate::dag::context::Context;
@@ -43,10 +45,6 @@ struct Layer {
     adapter: Adapter,
 }
 
-fn split<'a>(s: &'a str, pat: &str) -> Vec<&'a str> {
-    s.split(pat).filter(|x| !x.is_empty()).collect()
-}
-
 /// Convert Directed Acyclic Graph (DAG) into Unicode graphic
 ///
 /// # Arguments
@@ -82,4 +80,18 @@ fn split<'a>(s: &'a str, pat: &str) -> Vec<&'a str> {
 /// ```
 pub fn dag_to_text(s: &str) -> Result<String, ProcessingError> {
     Context::process(s)
+}
+
+/// Convert Directed Acyclic Graph (DAG) from `petgraph` create to Unicode graphic
+#[cfg(feature = "petgraph")]
+pub fn petgraph_dag_to_text<'a, G, N, F>(
+    input: &'a petgraph::acyclic::Acyclic<G>,
+    serializer: F,
+) -> Result<String, ProcessingError>
+where
+    G: petgraph::visit::Visitable + petgraph::visit::GraphBase<NodeId = N>,
+    &'a G: petgraph::visit::IntoEdgesDirected + petgraph::visit::GraphRef<NodeId = N>,
+    F: Fn(&N) -> String,
+{
+    Context::process_petgraph(input, serializer)
 }

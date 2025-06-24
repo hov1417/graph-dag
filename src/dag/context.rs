@@ -1,4 +1,4 @@
-use crate::dag::{Edge, Layer, Node, split};
+use crate::dag::{Edge, Layer, Node};
 use crate::screen::Screen;
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
@@ -19,8 +19,18 @@ pub enum ProcessingError {
     CycleFound,
 }
 
+macro_rules! timeit {
+    ($name:literal, $e:expr) => {{
+        let start = std::time::Instant::now();
+        let res = $e;
+        let duration = start.elapsed();
+        println!("{} took {:?}", $name, duration);
+        res
+    }};
+}
+
 impl Context {
-    fn add_node(&mut self, name: &str) {
+    pub(super) fn add_node(&mut self, name: &str) {
         if self.id.contains_key(name) {
             return;
         }
@@ -33,7 +43,8 @@ impl Context {
         self.labels.push(name.into());
     }
 
-    fn add_vertex(&mut self, a: &str, b: &str) {
+    
+    pub(super) fn add_vertex(&mut self, a: &str, b: &str) {
         let ia = self.id[a];
         let ib = self.id[b];
         self.nodes[ia].downward.insert(ib);
@@ -60,7 +71,15 @@ impl Context {
         self.nodes[b].upward.insert(c);
     }
 
+    pub(super) fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+    
     fn parse(&mut self, input: &str) {
+        fn split<'a>(s: &'a str, pat: &str) -> Vec<&'a str> {
+            s.split(pat).filter(|x| !x.is_empty()).collect()
+        }
+
         for line in split(input, "\n") {
             let mut prev = None;
             let line = line.trim();
@@ -81,7 +100,7 @@ impl Context {
         }
     }
 
-    fn toposort(&mut self) -> bool {
+    pub(super) fn toposort(&mut self) -> Result<(), ProcessingError> {
         let mut changed = true;
         let mut iter = 0;
         while changed {
@@ -97,13 +116,13 @@ impl Context {
             }
             iter += 1;
             if iter > self.nodes.len() * self.nodes.len() {
-                return false;
+                return Err(ProcessingError::CycleFound);
             }
         }
-        true
+        Ok(())
     }
 
-    fn complete(&mut self) {
+    pub(super) fn complete(&mut self) {
         loop {
             let mut again = false;
             for a in 0..self.nodes.len() {
@@ -123,7 +142,7 @@ impl Context {
         }
     }
 
-    fn build_layers(&mut self) {
+    pub(super) fn build_layers(&mut self) {
         let last_layer = self.nodes.iter().map(|n| n.layer).max().unwrap_or(0);
         self.layers.resize_with(last_layer + 1, Default::default);
         for (i, n) in self.nodes.iter().enumerate() {
@@ -243,7 +262,7 @@ impl Context {
         }
     }
 
-    fn resolve_crossings(&mut self) {
+    pub(super) fn resolve_crossings(&mut self) {
         for layer in &mut self.layers {
             let mut up = layer.edges.clone();
             let mut down = layer.edges.clone();
@@ -256,7 +275,7 @@ impl Context {
         }
     }
 
-    fn layout(&mut self) {
+    pub(super) fn layout(&mut self) {
         for (i, node) in self.nodes.iter_mut().enumerate() {
             if node.is_connector {
                 node.width = 1;
@@ -435,7 +454,7 @@ impl Context {
         true
     }
 
-    fn render(&self) -> String {
+    pub(super) fn render(&self) -> String {
         /* total size */
         let mut w = 0;
         let mut h = 0;
@@ -486,7 +505,7 @@ impl Context {
                 } else {
                     '▽'
                 };
-                screen.draw_pixel(e.x as usize, (e.y) as usize, up);
+                screen.draw_pixel(e.x as usize, e.y as usize, up);
                 screen.draw_pixel(e.x as usize, (e.y + 1) as usize, down);
             }
         }
@@ -502,23 +521,12 @@ impl Context {
 
     pub fn process(input: &str) -> Result<String, ProcessingError> {
         // todo debug logging
-        macro_rules! timeit {
-            ($name:literal, $e:expr) => {{
-                let start = std::time::Instant::now();
-                let res = $e;
-                let duration = start.elapsed();
-                println!("{} took {:?}", $name, duration);
-                res
-            }};
-        }
         let mut ctx = Self::default();
         timeit!("parse", ctx.parse(input));
         if ctx.nodes.is_empty() {
             return Ok(String::new());
         }
-        if !ctx.toposort() {
-            return Err(ProcessingError::CycleFound);
-        }
+        ctx.toposort()?;
         timeit!("complete", ctx.complete());
         timeit!("build_layers", ctx.build_layers());
         timeit!("resolve_crossings", ctx.resolve_crossings());
