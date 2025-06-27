@@ -523,7 +523,7 @@ impl Context {
         // todo debug logging
         let mut ctx = Self::default();
         timeit!("parse", ctx.parse(input));
-        if ctx.nodes.is_empty() {
+        if ctx.is_empty() {
             return Ok(String::new());
         }
         ctx.toposort()?;

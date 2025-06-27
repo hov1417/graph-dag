@@ -189,10 +189,58 @@ mod tests {
     // TODO
     use super::*;
     #[test]
-    fn smoke() {
+    fn screen() {
         let mut s = Screen::new(10, 5);
         s.draw_box(0, 0, 10, 5);
         s.draw_boxed_text(1, 1, "Hi");
-        println!("{s}");
+        assert_eq!(
+            format!("\n{}", s.to_string().trim()),
+            r#"
+┌────────┐
+│┌──┐    │
+││Hi│    │
+│└──┘    │
+└────────┘"#
+        );
+    }
+
+    #[test]
+    fn overlapping() {
+        let mut s = Screen::new(10, 10);
+        s.draw_box(0, 0, 10, 5);
+        s.draw_box(2, 2, 6, 3);
+        s.draw_boxed_text(1, 1, "Hi");
+        s.draw_boxed_text(1, 1, "Hi");
+        assert_eq!(
+            format!("\n{}", s.to_string().trim()),
+            r#"
+┌────────┐
+│┌──┐    │
+││Hi│──┐ │
+│└──┘  │ │
+└─└────┘─┘"#
+        );
+    }
+
+    #[test]
+    fn crossing() {
+        let mut s = Screen::new(10, 10);
+        s.draw_box(0, 0, 10, 5);
+        s.draw_box(2, 2, 7, 7);
+        s.draw_boxed_text(1, 1, "Hi");
+        s.draw_boxed_text(1, 1, "Hi");
+        assert_eq!(
+            format!("\n{}", s.to_string().trim()),
+            r#"
+┌────────┐
+│┌──┐    │
+││Hi│───┐│
+│└──┘   ││
+└─│─────│┘
+  │     │ 
+  │     │ 
+  │     │ 
+  └─────┘"#
+        );
     }
 }
