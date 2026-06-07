@@ -1,7 +1,11 @@
 use crate::dag::{Edge, Layer, Node};
 use crate::screen::Screen;
+use petgraph::graph::NodeIndex;
+use petgraph::visit::IntoNeighborsDirected;
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
+use std::ops::Index;
 use thiserror::Error;
 
 #[derive(Default)]
@@ -19,16 +23,6 @@ pub enum ProcessingError {
     CycleFound,
 }
 
-macro_rules! timeit {
-    ($name:literal, $e:expr) => {{
-        let start = std::time::Instant::now();
-        let res = $e;
-        let duration = start.elapsed();
-        println!("{} took {:?}", $name, duration);
-        res
-    }};
-}
-
 impl Context {
     pub(super) fn add_node(&mut self, name: &str) {
         if self.id.contains_key(name) {
@@ -43,7 +37,6 @@ impl Context {
         self.labels.push(name.into());
     }
 
-    
     pub(super) fn add_vertex(&mut self, a: &str, b: &str) {
         let ia = self.id[a];
         let ib = self.id[b];
@@ -73,31 +66,6 @@ impl Context {
 
     pub(super) fn is_empty(&self) -> bool {
         self.nodes.is_empty()
-    }
-    
-    fn parse(&mut self, input: &str) {
-        fn split<'a>(s: &'a str, pat: &str) -> Vec<&'a str> {
-            s.split(pat).filter(|x| !x.is_empty()).collect()
-        }
-
-        for line in split(input, "\n") {
-            let mut prev = None;
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            for part in split(line, "->") {
-                let name = part.trim();
-                if name.is_empty() {
-                    continue;
-                }
-                self.add_node(name);
-                if let Some(p) = prev {
-                    self.add_vertex(p, name);
-                }
-                prev = Some(name);
-            }
-        }
     }
 
     pub(super) fn toposort(&mut self) -> Result<(), ProcessingError> {
@@ -519,19 +487,38 @@ impl Context {
         screen.stringify()
     }
 
-    pub fn process(input: &str) -> Result<String, ProcessingError> {
-        // todo debug logging
+    pub fn process<'a, G, N, O>(
+        input: &'a petgraph::acyclic::Acyclic<G>,
+    ) -> Result<String, ProcessingError>
+    where
+        G: petgraph::visit::Visitable
+            + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
+            + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>,
+        &'a G:
+            petgraph::visit::IntoEdgesDirected + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
+        NodeIndex<N>: Clone,
+        O: Display,
+    {
         let mut ctx = Self::default();
-        timeit!("parse", ctx.parse(input));
+        for node in input.nodes_iter() {
+            let source = input.inner()[node.clone()].to_string();
+            ctx.add_node(&source);
+            let targets = input.neighbors_directed(node, petgraph::Direction::Outgoing);
+            for target in targets {
+                let target = input.inner()[target].to_string();
+                ctx.add_node(&target);
+                ctx.add_vertex(&source, &target);
+            }
+        }
+
         if ctx.is_empty() {
             return Ok(String::new());
         }
         ctx.toposort()?;
-        timeit!("complete", ctx.complete());
-        timeit!("build_layers", ctx.build_layers());
-        timeit!("resolve_crossings", ctx.resolve_crossings());
-        timeit!("layout", ctx.layout());
-        let res = timeit!("render", ctx.render());
-        Ok(res)
+        ctx.complete();
+        ctx.build_layers();
+        ctx.resolve_crossings();
+        ctx.layout();
+        Ok(ctx.render())
     }
 }

@@ -9,5 +9,3 @@ mod test;
 
 pub use crate::dag::ProcessingError;
 pub use crate::dag::dag_to_text;
-#[cfg(feature = "petgraph")]
-pub use crate::dag::petgraph_dag_to_text;

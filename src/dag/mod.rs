@@ -1,12 +1,13 @@
 mod adapter;
 mod context;
-#[cfg(feature = "petgraph")]
-mod petgraph_adapter;
 
 use crate::dag::adapter::Adapter;
 use crate::dag::context::Context;
 pub use crate::dag::context::ProcessingError;
+use petgraph::prelude::NodeIndex;
 use std::collections::HashSet;
+use std::fmt::Display;
+use std::ops::Index;
 
 #[derive(Default)]
 struct Node {
@@ -45,7 +46,7 @@ struct Layer {
     adapter: Adapter,
 }
 
-/// Convert Directed Acyclic Graph (DAG) into Unicode graphic
+///  Convert Directed Acyclic Graph (DAG) from `petgraph` create to Unicode graphic
 ///
 /// # Arguments
 ///
@@ -60,38 +61,41 @@ struct Layer {
 ///
 /// ```
 /// use graph_dag::dag_to_text;
-/// let graph = dag_to_text(r#"
-///     A -> B -> C
-///     D -> C
-///     D -> E
-/// "#);
+/// let mut g = petgraph::graph::DiGraph::<&str, ()>::default();
+/// let a = g.add_node("A");
+/// let b = g.add_node("B");
+/// let c = g.add_node("C");
+/// let d = g.add_node("D");
+/// let e = g.add_node("E");
+/// g.add_edge(a, b, ());
+/// g.add_edge(b, c, ());
+/// g.add_edge(d, c, ());
+/// g.add_edge(d, e, ());
+/// let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
+/// let graph = dag_to_text(&g);
 /// assert_eq!(
-/// &graph.unwrap(),
-/// r#"┌───┐┌───┐  
-/// │ A ││ D │  
-/// └┬──┘└┬─┬┘  
-/// ┌▽──┐ │┌▽──┐
-/// │ B │ ││ E │
-/// └┬──┘ │└───┘
-/// ┌▽────▽─┐   
-/// │   C   │   
-/// └───────┘   
-/// "#);
+/// graph.unwrap(),
+/// "┌───┐┌───┐  \n".to_owned() +
+/// "│ A ││ D │  \n" +
+/// "└┬──┘└┬─┬┘  \n" +
+/// "┌▽──┐ │┌▽──┐\n" +
+/// "│ B │ ││ E │\n" +
+/// "└┬──┘ │└───┘\n" +
+/// "┌▽────▽─┐   \n" +
+/// "│   C   │   \n" +
+/// "└───────┘   \n");
 /// ```
-pub fn dag_to_text(s: &str) -> Result<String, ProcessingError> {
-    Context::process(s)
-}
-
-/// Convert Directed Acyclic Graph (DAG) from `petgraph` create to Unicode graphic
-#[cfg(feature = "petgraph")]
-pub fn petgraph_dag_to_text<'a, G, N, F>(
+///
+pub fn dag_to_text<'a, G, N, O>(
     input: &'a petgraph::acyclic::Acyclic<G>,
-    serializer: F,
 ) -> Result<String, ProcessingError>
 where
-    G: petgraph::visit::Visitable + petgraph::visit::GraphBase<NodeId = N>,
-    &'a G: petgraph::visit::IntoEdgesDirected + petgraph::visit::GraphRef<NodeId = N>,
-    F: Fn(&N) -> String,
+    G: petgraph::visit::Visitable
+        + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
+        + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>,
+    &'a G: petgraph::visit::IntoEdgesDirected + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
+    NodeIndex<N>: Clone,
+    O: Display,
 {
-    Context::process_petgraph(input, serializer)
+    Context::process(input)
 }

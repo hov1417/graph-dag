@@ -3,35 +3,65 @@ use insta::assert_snapshot;
 
 #[test]
 fn test_dag_to_graph_1() {
-    assert_snapshot!(dag_to_text("A -> B -> C\nA -> D -> C").unwrap());
+    let mut g = petgraph::graph::DiGraph::<&str, ()>::default();
+    let a = g.add_node("A");
+    let b = g.add_node("B");
+    let c = g.add_node("C");
+    let d = g.add_node("D");
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(a, d, ());
+    g.add_edge(d, c, ());
+    let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
+    assert_snapshot!(dag_to_text(&g).unwrap());
 }
 
 #[test]
 fn test_dag_to_graph_2() {
-    assert_snapshot!(dag_to_text("A -> B -> C\nA -> D -> C\nB -> D").unwrap());
+    let mut g = petgraph::graph::DiGraph::<&str, ()>::default();
+    let a = g.add_node("A");
+    let b = g.add_node("B");
+    let c = g.add_node("C");
+    let d = g.add_node("D");
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(a, d, ());
+    g.add_edge(d, c, ());
+    g.add_edge(b, d, ());
+    let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
+    assert_snapshot!(dag_to_text(&g).unwrap());
 }
 
 #[test]
 fn test_dag_to_graph_3() {
-    assert_snapshot!(dag_to_text("A -> B -> C\nA -> D -> C\nB -> D\nE").unwrap());
+    let mut g = petgraph::graph::DiGraph::<&str, ()>::default();
+    let a = g.add_node("A");
+    let b = g.add_node("B");
+    let c = g.add_node("C");
+    let d = g.add_node("D");
+    g.add_node("E");
+    g.add_edge(a, b, ());
+    g.add_edge(b, c, ());
+    g.add_edge(a, d, ());
+    g.add_edge(d, c, ());
+    g.add_edge(b, d, ());
+    let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
+    assert_snapshot!(dag_to_text(&g).unwrap());
 }
 
 #[test]
 fn test_dag_to_graph_4() {
-    assert_snapshot!(dag_to_text("A -> C\nA -> D -> C\nB -> D\nE -> C").unwrap());
-}
-
-#[test]
-fn test_dag_to_graph_cycle_1() {
-    assert!(dag_to_text("A -> B\nA -> D\nB -> D\nD -> E\nE -> A").is_err());
-}
-
-#[test]
-fn test_dag_to_graph_cycle_2() {
-    assert!(dag_to_text("A -> B\nB -> C\nC -> A").is_err());
-}
-
-#[test]
-fn test_dag_to_graph_cycle_3() {
-    assert!(dag_to_text("A -> B\nB -> C\nC -> D\nD -> E\nE -> F\nF -> G\nG -> A").is_err());
+    let mut g = petgraph::graph::DiGraph::<&str, ()>::default();
+    let a = g.add_node("A");
+    let b = g.add_node("B");
+    let c = g.add_node("C");
+    let d = g.add_node("D");
+    let e = g.add_node("E");
+    g.add_edge(a, c, ());
+    g.add_edge(a, d, ());
+    g.add_edge(d, c, ());
+    g.add_edge(b, d, ());
+    g.add_edge(e, c, ());
+    let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
+    assert_snapshot!(dag_to_text(&g).unwrap());
 }

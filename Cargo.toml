@@ -6,12 +6,9 @@ license = "MIT"
 
 [dependencies]
 itertools = "0.14.0"
-petgraph = { version = "0.8.2", optional = true}
+petgraph = "0.8.2"
 thiserror = "2.0.12"
 
 [dev-dependencies]
 insta = "1.43.1"
-rand = "0.9.1"
-
-[features]
-petgraph = ["dep:petgraph"]
+rand = "0.10.1"
