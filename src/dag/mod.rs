@@ -9,8 +9,8 @@ use std::collections::HashSet;
 use std::fmt::Display;
 use std::ops::Index;
 
-#[derive(Default)]
-struct Node {
+#[derive(Default, Clone, Debug)]
+struct Node<N> {
     /* parsing */
     upward: HashSet<usize>,
     downward: HashSet<usize>,
@@ -29,6 +29,8 @@ struct Node {
     height: i32,
     x: i32,
     y: i32,
+
+    index: NodeIndex<N>
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -96,6 +98,7 @@ where
     &'a G: petgraph::visit::IntoEdgesDirected + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
     NodeIndex<N>: Clone,
     O: Display,
+    N: Clone + Default,
 {
     Context::process(input)
 }

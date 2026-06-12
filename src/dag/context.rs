@@ -1,20 +1,30 @@
 use crate::dag::{Edge, Layer, Node};
 use crate::screen::Screen;
 use petgraph::graph::NodeIndex;
-use petgraph::visit::IntoNeighborsDirected;
+use petgraph::prelude::EdgeRef;
+use petgraph::visit::IntoEdgeReferences;
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::Index;
 use thiserror::Error;
 
-#[derive(Default)]
-pub struct Context {
-    labels: Vec<String>,
+pub struct Context<'a, G, N, O>
+where
+    G: petgraph::visit::Visitable
+        + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
+        + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>,
+    &'a G: IntoEdgeReferences + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
+    NodeIndex<N>: Clone,
+    O: Display,
+    N: Clone + Default,
+{
     id: HashMap<String, usize>,
 
-    nodes: Vec<Node>,
+    nodes: Vec<Node<N>>,
     layers: Vec<Layer>,
+
+    graph: &'a petgraph::acyclic::Acyclic<G>,
 }
 
 #[derive(Error, Debug)]
@@ -23,18 +33,27 @@ pub enum ProcessingError {
     CycleFound,
 }
 
-impl Context {
-    pub(super) fn add_node(&mut self, name: &str) {
+impl<'a, G, N, O> Context<'a, G, N, O>
+where
+    G: petgraph::visit::Visitable
+        + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
+        + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>,
+    &'a G: IntoEdgeReferences + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
+    NodeIndex<N>: Clone,
+    O: Display,
+    N: Clone + Default,
+{
+    pub(super) fn add_node(&mut self, name: &str, index: NodeIndex<N>) {
         if self.id.contains_key(name) {
             return;
         }
         let idx = self.nodes.len();
         self.nodes.push(Node {
             padding: 1,
+            index,
             ..Default::default()
         });
         self.id.insert(name.into(), idx);
-        self.labels.push(name.into());
     }
 
     pub(super) fn add_vertex(&mut self, a: &str, b: &str) {
@@ -52,7 +71,6 @@ impl Context {
             layer: self.nodes[a].layer + 1,
             ..Default::default()
         });
-        self.labels.push("connector".into());
 
         self.nodes[a].downward.remove(&b);
         self.nodes[b].upward.remove(&a);
@@ -244,11 +262,13 @@ impl Context {
     }
 
     pub(super) fn layout(&mut self) {
-        for (i, node) in self.nodes.iter_mut().enumerate() {
+        for node in self.nodes.iter_mut() {
             if node.is_connector {
                 node.width = 1;
             } else {
-                let chars = self.labels[i].chars().count() as i32;
+                let chars = format!("{}", self.graph[node.index.clone()])
+                    .chars()
+                    .count() as i32;
                 let mut width = chars;
                 width = max(width, node.upward.len() as i32);
                 width = max(width, node.downward.len() as i32);
@@ -360,9 +380,11 @@ impl Context {
         }
         stable
     }
+
     fn layout_edges_do_not_touch(&mut self) -> bool {
         self.layout_nodes_do_not_touch()
     }
+
     fn layout_grow_nodes(&mut self) -> bool {
         for layer in &self.layers {
             for &edge in &layer.edges {
@@ -382,6 +404,7 @@ impl Context {
         }
         true
     }
+
     fn layout_shift_edges(&mut self) -> bool {
         for layer in &mut self.layers {
             for e in &mut layer.edges {
@@ -397,6 +420,7 @@ impl Context {
         }
         true
     }
+
     fn layout_shift_connector_nodes(&mut self) -> bool {
         for i in 0..self.nodes.len() {
             if !self.nodes[i].is_connector {
@@ -433,7 +457,7 @@ impl Context {
 
         let mut screen = Screen::new(w as usize, h as usize);
 
-        for (i, n) in self.nodes.iter().enumerate() {
+        for n in self.nodes.iter() {
             if n.is_connector {
                 if n.width == 1 {
                     screen.draw_vertical_line(n.y as usize, (n.y + 2) as usize, n.x as usize, '│');
@@ -456,7 +480,7 @@ impl Context {
                     n.x as usize,
                     n.y as usize,
                     n.width as usize,
-                    &self.labels[i],
+                    &format!("{}", &self.graph[n.index.clone()]), // TODO
                 );
             }
         }
@@ -487,28 +511,23 @@ impl Context {
         screen.stringify()
     }
 
-    pub fn process<'a, G, N, O>(
-        input: &'a petgraph::acyclic::Acyclic<G>,
-    ) -> Result<String, ProcessingError>
-    where
-        G: petgraph::visit::Visitable
-            + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
-            + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>,
-        &'a G:
-            petgraph::visit::IntoEdgesDirected + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
-        NodeIndex<N>: Clone,
-        O: Display,
-    {
-        let mut ctx = Self::default();
+    pub fn process(input: &'a petgraph::acyclic::Acyclic<G>) -> Result<String, ProcessingError> {
+        let mut ctx = Self {
+            id: HashMap::new(),
+
+            nodes: Vec::new(),
+            layers: Vec::new(),
+
+            graph: input,
+        };
         for node in input.nodes_iter() {
             let source = input.inner()[node.clone()].to_string();
-            ctx.add_node(&source);
-            let targets = input.neighbors_directed(node, petgraph::Direction::Outgoing);
-            for target in targets {
-                let target = input.inner()[target].to_string();
-                ctx.add_node(&target);
-                ctx.add_vertex(&source, &target);
-            }
+            ctx.add_node(&source, node.clone());
+        }
+        for edge in input.edge_references() {
+            let source = input.inner()[edge.source().clone()].to_string();
+            let target = input.inner()[edge.target().clone()].to_string();
+            ctx.add_vertex(&source, &target);
         }
 
         if ctx.is_empty() {

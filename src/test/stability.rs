@@ -36,8 +36,8 @@ fn create_random_dag(max_vertex: u32, max_edge: u32) -> Acyclic<Graph<String, ()
         } else if a == b {
             continue;
         }
-        let a_node = *nodes.entry(a).or_insert_with(|| g.add_node(format!("{a}")));
-        let b_node = *nodes.entry(b).or_insert_with(|| g.add_node(format!("{b}")));
+        let a_node = *nodes.entry(a).or_insert_with(|| g.add_node(a.to_string()));
+        let b_node = *nodes.entry(b).or_insert_with(|| g.add_node(b.to_string()));
         g.add_edge(a_node, b_node, ());
     }
 
