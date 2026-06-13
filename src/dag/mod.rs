@@ -3,14 +3,13 @@ mod context;
 
 use crate::dag::adapter::Adapter;
 use crate::dag::context::Context;
-pub use crate::dag::context::ProcessingError;
+use petgraph::adj::IndexType;
 use petgraph::prelude::NodeIndex;
+use petgraph::visit::{IntoEdgeReferences, NodeCount};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Index;
-use petgraph::adj::IndexType;
-use petgraph::visit::{IntoEdgeReferences, NodeCount};
 
 #[derive(Default, Clone, Debug)]
 struct Node<N> {
@@ -33,7 +32,7 @@ struct Node<N> {
     x: i32,
     y: i32,
 
-    index: NodeIndex<N>
+    index: NodeIndex<N>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -79,7 +78,7 @@ struct Layer {
 /// let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
 /// let graph = dag_to_text(&g);
 /// assert_eq!(
-/// graph.unwrap(),
+/// graph,
 /// "┌───┐┌───┐  \n".to_owned() +
 /// "│ A ││ D │  \n" +
 /// "└┬──┘└┬─┬┘  \n" +
@@ -91,14 +90,12 @@ struct Layer {
 /// "└───────┘   \n");
 /// ```
 ///
-pub fn dag_to_text<'a, G, N, O>(
-    input: &'a petgraph::acyclic::Acyclic<G>,
-) -> Result<String, ProcessingError>
+pub fn dag_to_text<'a, G, N, O>(input: &'a petgraph::acyclic::Acyclic<G>) -> String
 where
     G: petgraph::visit::Visitable
-    + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
-    + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>
-    + NodeCount,
+        + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
+        + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>
+        + NodeCount,
     &'a G: IntoEdgeReferences + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
     NodeIndex<N>: Clone,
     O: Display,

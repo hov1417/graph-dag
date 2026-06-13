@@ -13,7 +13,7 @@ fn test_dag_to_graph_1() {
     g.add_edge(a, d, ());
     g.add_edge(d, c, ());
     let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
-    assert_snapshot!(dag_to_text(&g).unwrap());
+    assert_snapshot!(dag_to_text(&g));
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn test_dag_to_graph_2() {
     g.add_edge(d, c, ());
     g.add_edge(b, d, ());
     let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
-    assert_snapshot!(dag_to_text(&g).unwrap());
+    assert_snapshot!(dag_to_text(&g));
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn test_dag_to_graph_3() {
     g.add_edge(d, c, ());
     g.add_edge(b, d, ());
     let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
-    assert_snapshot!(dag_to_text(&g).unwrap());
+    assert_snapshot!(dag_to_text(&g));
 }
 
 #[test]
@@ -63,5 +63,5 @@ fn test_dag_to_graph_4() {
     g.add_edge(b, d, ());
     g.add_edge(e, c, ());
     let g = petgraph::acyclic::Acyclic::try_from_graph(g).unwrap();
-    assert_snapshot!(dag_to_text(&g).unwrap());
+    assert_snapshot!(dag_to_text(&g));
 }

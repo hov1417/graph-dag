@@ -16,10 +16,7 @@ fn dag_50_50() {
         let _ = panic::take_hook();
         let err = format!("failed convert dag to text for following graph\n'{dag:?}'");
         panic::set_hook(Box::new(move |_| println!("{err}")));
-        assert!(
-            dag_to_text(&dag).is_ok(),
-            "failed convert dag to text for following graph\n'{dag:?}'"
-        );
+        dag_to_text(&dag);
     }
 }
 

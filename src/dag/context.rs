@@ -1,6 +1,5 @@
 use crate::dag::{Edge, Layer, Node};
 use crate::screen::Screen;
-use itertools::Itertools;
 use petgraph::graph::{IndexType, NodeIndex};
 use petgraph::prelude::EdgeRef;
 use petgraph::visit::{IntoEdgeReferences, NodeCount};
@@ -9,7 +8,6 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Index;
-use thiserror::Error;
 
 pub struct Context<'a, G, N, O>
 where
@@ -25,12 +23,6 @@ where
     layers: Vec<Layer>,
 
     graph: &'a petgraph::acyclic::Acyclic<G>,
-}
-
-#[derive(Error, Debug)]
-pub enum ProcessingError {
-    #[error("The graph has a cycle")]
-    CycleFound,
 }
 
 // TODO: reduce type requirements
@@ -68,7 +60,7 @@ where
         self.nodes.is_empty()
     }
 
-    pub(super) fn toposort(&mut self) -> Result<(), ProcessingError> {
+    pub(super) fn toposort(&mut self) {
         let mut changed = true;
         let mut iter = 0;
         while changed {
@@ -83,11 +75,12 @@ where
                 }
             }
             iter += 1;
+            // input is acyclic graph, no need to check
+            #[cfg(debug_assertions)]
             if iter > self.nodes.len() * self.nodes.len() {
-                return Err(ProcessingError::CycleFound);
+                panic!("Cycle found");
             }
         }
-        Ok(())
     }
 
     pub(super) fn complete(&mut self) {
@@ -493,7 +486,7 @@ where
         screen.stringify()
     }
 
-    pub fn process(input: &'a petgraph::acyclic::Acyclic<G>) -> Result<String, ProcessingError> {
+    pub fn process(input: &'a petgraph::acyclic::Acyclic<G>) -> String {
         let mut ctx = Self {
             nodes: vec![Default::default(); input.node_count()],
             layers: Vec::new(),
@@ -517,13 +510,13 @@ where
         }
 
         if ctx.is_empty() {
-            return Ok(String::new());
+            return String::new();
         }
-        ctx.toposort()?;
+        ctx.toposort();
         ctx.complete();
         ctx.build_layers();
         ctx.resolve_crossings();
         ctx.layout();
-        Ok(ctx.render())
+        ctx.render()
     }
 }
