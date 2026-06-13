@@ -23,6 +23,7 @@ fn dag_50_50() {
     }
 }
 
+// TODO add remove nodes, before and after `Acyclic::try_from_graph`
 fn create_random_dag(max_vertex: u32, max_edge: u32) -> Acyclic<Graph<String, ()>> {
     let mut g = petgraph::graph::DiGraph::<String, ()>::default();
     let mut nodes = HashMap::new();

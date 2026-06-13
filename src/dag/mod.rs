@@ -7,7 +7,10 @@ pub use crate::dag::context::ProcessingError;
 use petgraph::prelude::NodeIndex;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::hash::Hash;
 use std::ops::Index;
+use petgraph::adj::IndexType;
+use petgraph::visit::{IntoEdgeReferences, NodeCount};
 
 #[derive(Default, Clone, Debug)]
 struct Node<N> {
@@ -93,12 +96,13 @@ pub fn dag_to_text<'a, G, N, O>(
 ) -> Result<String, ProcessingError>
 where
     G: petgraph::visit::Visitable
-        + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
-        + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>,
-    &'a G: petgraph::visit::IntoEdgesDirected + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
+    + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
+    + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>
+    + NodeCount,
+    &'a G: IntoEdgeReferences + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
     NodeIndex<N>: Clone,
     O: Display,
-    N: Clone + Default,
+    N: IndexType + Eq + Hash + Default + Clone,
 {
     Context::process(input)
 }

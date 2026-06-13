@@ -1,11 +1,13 @@
 use crate::dag::{Edge, Layer, Node};
 use crate::screen::Screen;
-use petgraph::graph::NodeIndex;
+use itertools::Itertools;
+use petgraph::graph::{IndexType, NodeIndex};
 use petgraph::prelude::EdgeRef;
-use petgraph::visit::IntoEdgeReferences;
+use petgraph::visit::{IntoEdgeReferences, NodeCount};
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::hash::Hash;
 use std::ops::Index;
 use thiserror::Error;
 
@@ -19,8 +21,6 @@ where
     O: Display,
     N: Clone + Default,
 {
-    id: HashMap<String, usize>,
-
     nodes: Vec<Node<N>>,
     layers: Vec<Layer>,
 
@@ -33,36 +33,18 @@ pub enum ProcessingError {
     CycleFound,
 }
 
+// TODO: reduce type requirements
 impl<'a, G, N, O> Context<'a, G, N, O>
 where
     G: petgraph::visit::Visitable
         + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>
-        + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>,
+        + Index<petgraph::matrix_graph::NodeIndex<N>, Output = O>
+        + NodeCount,
     &'a G: IntoEdgeReferences + petgraph::visit::GraphBase<NodeId = NodeIndex<N>>,
     NodeIndex<N>: Clone,
     O: Display,
-    N: Clone + Default,
+    N: IndexType + Eq + Hash + Default + Clone,
 {
-    pub(super) fn add_node(&mut self, name: &str, index: NodeIndex<N>) {
-        if self.id.contains_key(name) {
-            return;
-        }
-        let idx = self.nodes.len();
-        self.nodes.push(Node {
-            padding: 1,
-            index,
-            ..Default::default()
-        });
-        self.id.insert(name.into(), idx);
-    }
-
-    pub(super) fn add_vertex(&mut self, a: &str, b: &str) {
-        let ia = self.id[a];
-        let ib = self.id[b];
-        self.nodes[ia].downward.insert(ib);
-        self.nodes[ib].upward.insert(ia);
-    }
-
     fn add_connector(&mut self, a: usize, b: usize) {
         let c = self.nodes.len();
         self.nodes.push(Node {
@@ -513,21 +495,25 @@ where
 
     pub fn process(input: &'a petgraph::acyclic::Acyclic<G>) -> Result<String, ProcessingError> {
         let mut ctx = Self {
-            id: HashMap::new(),
-
-            nodes: Vec::new(),
+            nodes: vec![Default::default(); input.node_count()],
             layers: Vec::new(),
 
             graph: input,
         };
+
         for node in input.nodes_iter() {
-            let source = input.inner()[node.clone()].to_string();
-            ctx.add_node(&source, node.clone());
+            let index = node.clone();
+            ctx.nodes[node.index()] = Node {
+                padding: 1,
+                index,
+                ..Default::default()
+            }
         }
         for edge in input.edge_references() {
-            let source = input.inner()[edge.source().clone()].to_string();
-            let target = input.inner()[edge.target().clone()].to_string();
-            ctx.add_vertex(&source, &target);
+            let source = edge.source().index();
+            let target = edge.target().index();
+            ctx.nodes[source].downward.insert(target);
+            ctx.nodes[target].upward.insert(source);
         }
 
         if ctx.is_empty() {
