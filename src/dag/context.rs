@@ -56,11 +56,11 @@ where
         self.nodes[b].upward.insert(c);
     }
 
-    pub(super) fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
 
-    pub(super) fn toposort(&mut self) {
+    fn toposort(&mut self) {
         let mut changed = true;
         let mut iter = 0;
         while changed {
@@ -83,12 +83,12 @@ where
         }
     }
 
-    pub(super) fn complete(&mut self) {
+    fn complete(&mut self) {
         loop {
             let mut again = false;
             for a in 0..self.nodes.len() {
                 let layer_a = self.nodes[a].layer;
-                let downs: Vec<usize> = self.nodes[a].downward.clone().into_iter().collect();
+                let downs = self.nodes[a].downward.clone();
                 for b in downs {
                     if layer_a + 1 != self.nodes[b].layer {
                         self.add_connector(a, b);
@@ -103,7 +103,7 @@ where
         }
     }
 
-    pub(super) fn build_layers(&mut self) {
+    fn build_layers(&mut self) {
         let last_layer = self.nodes.iter().map(|n| n.layer).max().unwrap_or(0);
         self.layers.resize_with(last_layer + 1, Default::default);
         for (i, n) in self.nodes.iter().enumerate() {
@@ -223,7 +223,7 @@ where
         }
     }
 
-    pub(super) fn resolve_crossings(&mut self) {
+    fn resolve_crossings(&mut self) {
         for layer in &mut self.layers {
             let mut up = layer.edges.clone();
             let mut down = layer.edges.clone();
@@ -236,7 +236,7 @@ where
         }
     }
 
-    pub(super) fn layout(&mut self) {
+    fn layout(&mut self) {
         for node in self.nodes.iter_mut() {
             if node.is_connector {
                 node.width = 1;
@@ -421,7 +421,7 @@ where
         true
     }
 
-    pub(super) fn render(&self) -> String {
+    fn render(&self) -> String {
         /* total size */
         let mut w = 0;
         let mut h = 0;
@@ -455,7 +455,7 @@ where
                     n.x as usize,
                     n.y as usize,
                     n.width as usize,
-                    &format!("{}", &self.graph[n.index.clone()]), // TODO
+                    &format!("{}", &self.graph[n.index]), // TODO
                 );
             }
         }
